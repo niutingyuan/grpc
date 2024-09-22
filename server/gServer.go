@@ -1,9 +1,14 @@
-package server
+package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/mactsouk/protoapi"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	"math/rand"
+	"net"
+	"os"
 	"time"
 )
 
@@ -60,4 +65,40 @@ func (RandomServer) GetRandom(ctx context.Context, r *protoapi.RandomParams) (*p
 	}
 
 	return response, nil
+}
+
+func (RandomServer) GetRandomPass(ctx context.Context, r *protoapi.RequestPass) (*protoapi.RandomPass, error) {
+	rand.Seed(r.GetSeed())
+	temp := getString(r.GetLength())
+
+	response := &protoapi.RandomPass{
+		Password: temp,
+	}
+
+	return response, nil
+}
+
+var port = ":8080"
+
+func main() {
+	if len(os.Args) == 1 {
+		fmt.Println("Using default port: ", port)
+	} else {
+		port = os.Args[1]
+	}
+
+	server := grpc.NewServer()
+	var randomServer RandomServer
+	protoapi.RegisterRandomServer(server, randomServer)
+
+	reflection.Register(server)
+
+	listen, err := net.Listen("tcp", port)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("Serving gRPC on port ", port)
+	server.Serve(listen)
 }
